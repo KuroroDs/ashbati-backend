@@ -1,46 +1,48 @@
-console.log('🔗 باش نربطو مع الداتابيز...');
+// هذا الملف اختياري، يمكن حذفه إذا كنت تستعمل config/database.js فقط
+console.log('📦 Loading database models...');
 
-const { Sequelize } = require('sequelize');
+const { sequelize } = require('../../config/database');
+const { DataTypes } = require('sequelize');
 
-// تحقق من DATABASE_URL
-const databaseUrl = process.env.DATABASE_URL;
-let sequelize;
-
-if (!databaseUrl) {
-  console.log('⚠️  DATABASE_URL ماموجودش - نستعملو إعدادات محلية');
-  
-  // إعدادات للتطوير المحلي
-  if (process.env.DB_HOST && process.env.DB_NAME) {
-    console.log('🔍 كاين إعدادات داتابيز منفصلة');
-    const constructedUrl = `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASS || ''}@${process.env.DB_HOST}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME}`;
-    
-    console.log('✅ URL متكون');
-    
-    sequelize = new Sequelize(constructedUrl, {
-      dialect: 'postgres',
-      logging: false,
-      dialectOptions: false // SSL محلياً ماشي ضروري
-    });
-  } else {
-    console.log('❌ ماعندناش إعدادات داتابيز');
-    sequelize = null; // ⬅️ مهم: خليه null إذا ما كاينش
+// تعريف الموديلات (أمثلة)
+const Product = sequelize?.define('Product', {
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  price: {
+    type: DataTypes.FLOAT,
+    allowNull: false
+  },
+  category: {
+    type: DataTypes.STRING
+  },
+  description: {
+    type: DataTypes.TEXT
   }
-} else {
-  console.log('✅ DATABASE_URL موجود');
-  
-  sequelize = new Sequelize(databaseUrl, {
-    dialect: 'postgres',
-    logging: false,
-    dialectOptions: process.env.NODE_ENV === 'production' ? {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
-    } : false
-  });
-}
+}, {
+  timestamps: true
+});
 
-console.log('✅ الداتابيز راه جاهز:', sequelize ? 'نعم' : 'لا');
+const User = sequelize?.define('User', {
+  username: {
+    type: DataTypes.STRING,
+    unique: true
+  },
+  email: {
+    type: DataTypes.STRING,
+    unique: true
+  },
+  password: {
+    type: DataTypes.STRING
+  }
+}, {
+  timestamps: true
+});
 
-// ⚠️ ⚠️ ⚠️ مهم: دايماً كيexport حتى إذا sequelize هو null
-module.exports = { sequelize, Sequelize };
+// Export models
+module.exports = {
+  sequelize,
+  Product: sequelize ? Product : null,
+  User: sequelize ? User : null
+};

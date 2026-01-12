@@ -1,35 +1,49 @@
-// config/database.js - غيرو هكدا
+console.log('🔗 Initializing database connection...');
+
 const { Sequelize } = require('sequelize');
-require('dotenv').config();
 
-// خلي DATABASE_URL هو الأساسي
-const databaseUrl = process.env.DATABASE_URL;
+// Determine which database URL to use
+let connectionString;
 
-let sequelize;
-
-if (databaseUrl) {
-  // استعمل DATABASE_URL (للإنتاج على Railway)
-  sequelize = new Sequelize(databaseUrl, {
-    dialect: 'postgres',
-    logging: false,
-    dialectOptions: process.env.NODE_ENV === 'production' ? {
-      ssl: { require: true, rejectUnauthorized: false }
-    } : {}
-  });
+if (process.env.DATABASE_URL) {
+  // Production - Railway URL
+  connectionString = process.env.DATABASE_URL;
+  console.log('✅ Using DATABASE_URL from environment');
+} else if (process.env.DB_HOST && process.env.DB_NAME) {
+  // Development - Separate settings
+  const user = process.env.DB_USER || 'postgres';
+  const password = process.env.DB_PASS || '';
+  const host = process.env.DB_HOST;
+  const port = process.env.DB_PORT || 5432;
+  const database = process.env.DB_NAME;
+  
+  connectionString = `postgresql://${user}:${password}@${host}:${port}/${database}`;
+  console.log('✅ Using separate DB settings for development');
 } else {
-  // للتطوير المحلي (إذا ما كاينش DATABASE_URL)
-  sequelize = new Sequelize(
-    process.env.DB_NAME || 'ashbati_db',
-    process.env.DB_USER || 'postgres',
-    process.env.DB_PASS || 'root',
-    {
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
-      dialect: 'postgres',
-      logging: false
-    }
-  );
+  console.log('❌ No database configuration found');
+  console.log('⚠️  Server will run without database connection');
+  module.exports = { sequelize: null, Sequelize };
+  return;
 }
 
-console.log('✅ Database configured for:', process.env.NODE_ENV);
-module.exports = sequelize;
+// Create Sequelize instance
+const sequelize = new Sequelize(connectionString, {
+  dialect: 'postgres',
+  logging: false, // Set to console.log for debugging
+  dialectOptions: process.env.NODE_ENV === 'production' ? {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    }
+  } : {},
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  }
+});
+
+console.log('✅ Sequelize instance created');
+
+module.exports = { sequelize, Sequelize };

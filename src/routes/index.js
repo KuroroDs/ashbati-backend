@@ -1,53 +1,76 @@
 const express = require('express');
 const router = express.Router();
 
-// 📍 Test route
-router.get('/test', (req, res) => {
-  res.json({
-    success: true,
-    message: '🚀 API Ashbati تعمل بنجاح',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      products: '/api/products',
-      auth: '/api/auth',
-      inventory: '/api/inventory'
-    }
-  });
-});
-
-// 📍 Products routes (مثال)
-router.get('/products', async (req, res) => {
-  try {
-    // هنا غادي تجيب البيانات من الداتابيز
-    res.json({
-      success: true,
-      products: [],
-      message: 'Products list',
-      count: 0
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// 📍 Auth routes (مثال)
+// ==================== AUTH ROUTES ====================
 router.post('/auth/login', (req, res) => {
   res.json({
     success: true,
     message: 'Login endpoint',
-    token: 'sample-jwt-token'
+    token: 'sample-jwt-token',
+    user: {
+      id: 1,
+      name: 'Test User',
+      email: 'test@ashbati.com'
+    }
   });
 });
 
-// 📍 Health check
-/*router.get('/health', (req, res) => {
+router.post('/auth/register', (req, res) => {
   res.json({
-    status: 'healthy',
-    uptime: process.uptime()
+    success: true,
+    message: 'Registration successful',
+    user: {
+      id: 2,
+      name: req.body.name || 'New User'
+    }
   });
 });
 
-module.exports = router;*/
+// ==================== PRODUCT ROUTES ====================
+router.get('/products', (req, res) => {
+  res.json({
+    success: true,
+    products: [
+      {
+        id: 1,
+        name: 'عسل السيدي',
+        price: 120,
+        category: 'عسل',
+        description: 'عسل طبيعي 100%'
+      },
+      {
+        id: 2,
+        name: 'زيت الأركان',
+        price: 200,
+        category: 'زيوت',
+        description: 'زيت أركان نقي'
+      }
+    ],
+    count: 2
+  });
+});
+
+router.get('/products/:id', (req, res) => {
+  res.json({
+    success: true,
+    product: {
+      id: parseInt(req.params.id),
+      name: 'Product ' + req.params.id,
+      price: 100,
+      category: 'عام'
+    }
+  });
+});
+
+// ==================== ORDER ROUTES ====================
+router.post('/orders', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Order created',
+    orderId: Date.now(),
+    total: req.body.total || 0
+  });
+});
+
+// ==================== EXPORT ====================
+module.exports = router;

@@ -1,129 +1,138 @@
-console.log("🟢 1. بدينا...");
-
-const fs = require('fs');
-const path = require('path');
-
-console.log('📁 Current directory:', __dirname);
-console.log('📁 routes/index exists?', fs.existsSync(path.join(__dirname, 'src/routes/index.js')));
+// ==================== CONFIGURATION ====================
+console.log("🚀 Ashbati API - Starting Server...");
 
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
-console.log("🟢 2. دابا جاهزين...");
+// Load environment variables
+dotenv.config();
 
-// Environment
-if (process.env.NODE_ENV !== 'production') {
-  console.log("🔵 مود التجريب");
-  dotenv.config();
-} else {
-  console.log("🔵 مود الانتاج");
-}
-
-console.log("🔍 البورط:", process.env.PORT);
-console.log("🔍 DATABASE_URL:", process.env.DATABASE_URL ? "موجود" : "ماشي موجود");
-
-console.log("🟢 3. غادي نحمل الداتابيز...");
-
-// Database
-let db;
+// ==================== DATABASE CONNECTION ====================
+let db = null;
 try {
-  const models = require('./src/models');
-  db = models.sequelize; // ⬅️ يمكن يكون null
-  console.log("✅ الداتابيز تحمل:", db ? 'نعم' : 'لا');
+  const { sequelize } = require('./config/database');
+  db = sequelize;
+  console.log("✅ Database module loaded");
 } catch (error) {
-  console.log("⚠️  مشكل فالداتابيز:", error.message);
-  db = null;
+  console.log("⚠️  Database not available:", error.message);
 }
 
-console.log("🟢 4. غادي نحمل الروابط...");
-
-// Routes
+// ==================== EXPRESS APP ====================
 const app = express();
-app.use(cors());
+
+// CORS Configuration
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Body Parser
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Static files
-if (fs.existsSync('uploads')) {
+// Static Files
+if (require('fs').existsSync('uploads')) {
   app.use('/uploads', express.static('uploads'));
-  console.log("✅ uploads متاح");
 }
 
-// API Routes
-if (fs.existsSync('./src/routes/index.js')) {
-  try {
-    const apiRoutes = require('./src/routes/index');
-    app.use('/api', apiRoutes);
-    console.log("✅ الروابط تحملو");
-  } catch (error) {
-    console.log("⚠️  مشكل فالروابط:", error.message);
-    app.get('/api/test', (req, res) => {
-      res.json({ message: "API test route" });
-    });
-  }
-} else {
-  console.log("⚠️  ملف الروابط ماموجودش");
-  app.get('/api/test', (req, res) => {
-    res.json({ message: "API تعمل - routes مازالو ما تحملوش" });
-  });
-}
+// ==================== ROUTES ====================
 
-// الصفحة الرئيسية
+// 1. ROOT ROUTE - MUST RETURN JSON
 app.get('/', (req, res) => {
-  res.json({ 
-    message: '🌿 مرحبا فAPI ديال أشباتي',
-    status: 'شغال',
-    time: new Date().toISOString(),
-    version: '1.0.0'
+  res.status(200).json({
+    success: true,
+    message: '🌿 Ashbati API - Backend Service',
+    version: '1.0.0',
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    documentation: 'https://github.com/KuroroDs/ashbati-backend',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      api_test: '/api/test',
+      api_products: '/api/products'
+    }
   });
 });
 
-// صفحة الصحة
+// 2. HEALTH CHECK
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'سليم',
-    database: db ? 'متصل' : 'مفصول',
+  res.json({
+    status: 'healthy',
+    database: db ? 'connected' : 'disconnected',
     uptime: process.uptime(),
-    memory: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`
+    memory: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Port
-const PORT = process.env.PORT || 3000;
-console.log(`🎯 البورط: ${PORT}`);
+// 3. API ROUTES
+const apiRouter = require('express').Router();
 
-// Start server
+// Test endpoint
+apiRouter.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working correctly',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Products endpoint (example)
+apiRouter.get('/products', (req, res) => {
+  res.json({
+    success: true,
+    data: [],
+    message: 'Products endpoint',
+    count: 0
+  });
+});
+
+// Mount API router
+app.use('/api', apiRouter);
+
+// 4. 404 HANDLER
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ==================== SERVER START ====================
+const PORT = process.env.PORT || 3000;
+
 const startServer = async () => {
   try {
-    console.log(`🔗 غادي نربطو مع الداتابيز...`);
-    
+    // Test database connection if available
     if (db) {
       await db.authenticate();
-      console.log('✅ الداتابيز ربطت!');
-    } else {
-      console.log('⚠️  الداتابيز مازال مافيهاش - نكملو بدون داتابيز');
+      console.log('✅ Database connection established');
     }
 
-    console.log(`🌍 غادي نبداو السيرفر...`);
-    
+    // Start server
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🎉 السيرفر بدا ف: ${PORT}`);
-      console.log(`🌐 لينك: https://ashbati-backend.railway.app`);
-      console.log(`⏰ ${new Date().toLocaleTimeString()}`);
-      console.log("====================================");
-      console.log("✅ السيرفر جاهز للاستعمال!");
-      console.log("====================================");
+      console.log('='.repeat(50));
+      console.log(`✅ Server running on PORT: ${PORT}`);
+      console.log(`🌐 Local: http://localhost:${PORT}`);
+      console.log(`🌐 Railway: https://ashbati-backend.railway.app`);
+      console.log(`⏰ Started: ${new Date().toLocaleString()}`);
+      console.log('='.repeat(50));
     });
 
   } catch (error) {
-    console.error('❌ خطأ فبداية السيرفر:', error.message);
+    console.error('❌ Server startup error:', error.message);
     
-    // حتى إذا فيه خطأ، السيرفر يبدا
+    // Start without database if connection fails
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`⚠️  السيرفر بدا مع أخطاء ف ${PORT}`);
+      console.log(`⚠️  Server started WITHOUT database on PORT: ${PORT}`);
     });
   }
 };
 
-console.log("🎬 باش نبداو السيرفر...");
+// Start the server
 startServer();
