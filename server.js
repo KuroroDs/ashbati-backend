@@ -4,7 +4,6 @@ console.log("🚀 Ashbati API - Starting Server...");
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -22,6 +21,15 @@ try {
 // ==================== EXPRESS APP ====================
 const app = express();
 
+// Add identifying headers FIRST (before CORS)
+app.use((req, res, next) => {
+  // Set headers to identify our app (helps Railway recognize it's our response)
+  res.setHeader('X-Ashbati-API', 'v1.0.0');
+  res.setHeader('X-Server', 'Express-Node');
+  res.setHeader('X-Powered-By', 'Ashbati-Backend');
+  next();
+});
+
 // CORS Configuration
 app.use(cors({
   origin: '*',
@@ -29,14 +37,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Remove interfering headers for Railway
-app.use((req, res, next) => {
-  // Remove any Railway-specific headers that might interfere
-  res.removeHeader('X-Powered-By');
-  next();
-});
-
-// Request logging middleware (for debugging)
+// Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
   next();
@@ -51,9 +52,31 @@ if (require('fs').existsSync('uploads')) {
   app.use('/uploads', express.static('uploads'));
 }
 
-// ==================== ROUTES ====================
+// ==================== CRITICAL ENDPOINTS (for Railway health checks) ====================
 
-// 1. ROOT ROUTE - MUST RETURN JSON
+// 1. SIMPLE HEALTH CHECK (for Railway health check)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    service: 'Ashbati API',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 2. API STATUS (alternative health check)
+app.get('/api-status', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'Ashbati Backend',
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// ==================== MAIN ROUTES ====================
+
+// 3. ROOT ROUTE
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
@@ -61,68 +84,17 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     status: 'online',
     timestamp: new Date().toISOString(),
-    documentation: 'https://github.com/KuroroDs/ashbati-backend',
     endpoints: {
       health: '/health',
+      api_status: '/api-status',
       api: '/api',
-      api_test: '/api/test',
-      api_products: '/api/products',
-      api_status: '/api-status'
+      api_test: '/api/test'
     }
-  });
-});
-
-// 2. API STATUS ENDPOINT (Alternative root for testing)
-app.get('/api-status', (req, res) => {
-  res.json({
-    success: true,
-    message: 'API is working via /api-status endpoint',
-    timestamp: new Date().toISOString(),
-    server: 'Ashbati Backend',
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// 3. HEALTH CHECK
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    database: db ? 'connected' : 'disconnected',
-    uptime: process.uptime(),
-    memory: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
-    timestamp: new Date().toISOString(),
-    server_time: new Date().toLocaleString()
   });
 });
 
 // 4. API ROUTES
 const apiRouter = require('express').Router();
-
-// Test endpoint
-apiRouter.get('/test', (req, res) => {
-  res.json({
-    success: true,
-    message: 'API is working correctly',
-    timestamp: new Date().toISOString(),
-    request_info: {
-      method: req.method,
-      url: req.originalUrl,
-      ip: req.ip,
-      user_agent: req.get('User-Agent')
-    }
-  });
-});
-
-// Products endpoint (example)
-apiRouter.get('/products', (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'Products endpoint - Ready for implementation',
-    count: 0,
-    timestamp: new Date().toISOString()
-  });
-});
 
 // API root
 apiRouter.get('/', (req, res) => {
@@ -132,40 +104,89 @@ apiRouter.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       test: '/test',
-      products: '/products'
+      products: '/products',
+      health: '/health'
     }
   });
+});
+
+// Test endpoint
+apiRouter.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API is working correctly',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Products endpoint
+apiRouter.get('/products', (req, res) => {
+  res.json({
+    success: true,
+    data: [],
+    message: 'Products endpoint',
+    count: 0,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Database status endpoint
+apiRouter.get('/db-status', async (req, res) => {
+  try {
+    if (db) {
+      await db.authenticate();
+      res.json({
+        success: true,
+        message: 'Database connected',
+        database: db.config.database,
+        host: db.config.host
+      });
+    } else {
+      res.json({
+        success: false,
+        message: 'Database not configured'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Database connection error',
+      error: error.message
+    });
+  }
 });
 
 // Mount API router
 app.use('/api', apiRouter);
 
-// 5. 404 HANDLER
+// ==================== ERROR HANDLERS ====================
+
+// 404 HANDLER
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     error: 'NOT_FOUND',
     message: `Route ${req.originalUrl} not found`,
     timestamp: new Date().toISOString(),
-    suggested_endpoints: [
+    available_endpoints: [
       '/',
       '/health',
+      '/api-status',
       '/api',
       '/api/test',
-      '/api-status'
+      '/api/products',
+      '/api/db-status'
     ]
   });
 });
 
-// ==================== ERROR HANDLER ====================
+// Error handler
 app.use((err, req, res, next) => {
-  console.error('❌ Server Error:', err.stack);
+  console.error('❌ Server Error:', err.message);
   res.status(500).json({
     success: false,
     error: 'INTERNAL_SERVER_ERROR',
-    message: process.env.NODE_ENV === 'production' 
-      ? 'An internal server error occurred'
-      : err.message,
+    message: 'An internal server error occurred',
     timestamp: new Date().toISOString()
   });
 });
@@ -177,9 +198,12 @@ const startServer = async () => {
   try {
     // Test database connection if available
     if (db) {
-      await db.authenticate();
-      console.log('✅ Database connection established');
-      console.log(`📊 Database: ${db.config.database} @ ${db.config.host}`);
+      try {
+        await db.authenticate();
+        console.log('✅ Database connection established');
+      } catch (dbError) {
+        console.log('⚠️  Database connection failed:', dbError.message);
+      }
     }
 
     // Start server
@@ -192,17 +216,20 @@ const startServer = async () => {
       console.log(`⏰ Started: ${new Date().toLocaleString()}`);
       console.log('='.repeat(50));
       
-      // Log available endpoints
-      console.log('\n📡 Available Endpoints:');
+      // Log critical endpoints for Railway
+      console.log('\n📡 Critical Endpoints (for Railway health checks):');
+      console.log('  • GET  /health        - Simple health check');
+      console.log('  • GET  /api-status    - Detailed status');
+      
+      console.log('\n📡 Available API Endpoints:');
       console.log('  • GET  /              - API information');
-      console.log('  • GET  /health        - Health check');
-      console.log('  • GET  /api-status    - Alternative status');
       console.log('  • GET  /api           - API root');
       console.log('  • GET  /api/test      - Test endpoint');
       console.log('  • GET  /api/products  - Products endpoint');
+      console.log('  • GET  /api/db-status - Database status');
     });
 
-    // Graceful shutdown handler
+    // Graceful shutdown
     const gracefulShutdown = () => {
       console.log('\n🛑 Received shutdown signal');
       server.close(() => {
@@ -220,12 +247,7 @@ const startServer = async () => {
 
   } catch (error) {
     console.error('❌ Server startup error:', error.message);
-    
-    // Start without database if connection fails
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`⚠️  Server started WITHOUT database on PORT: ${PORT}`);
-      console.log(`🌐 Access at: http://localhost:${PORT}`);
-    });
+    process.exit(1);
   }
 };
 
