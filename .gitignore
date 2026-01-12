@@ -39,3 +39,7 @@ uploads/
 # Temporary files
 tmp/
 temp/
+# أضف .env لـ .gitignore
+echo ".env" >> .gitignore
+echo ".env.local" >> .gitignore
+echo "node_modules" >> .gitignore
