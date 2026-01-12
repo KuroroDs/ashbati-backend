@@ -1,68 +1,66 @@
-// ============ اولا: ملف server.js كامل مزيان ============
-
-console.log("🟢 1. باش تبدا السيرفر...");
+console.log("🟢 1. بدينا...");
 
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
-console.log("🟢 2. الكودات تتبداو تحمل...");
+console.log("🟢 2. دابا جاهزين...");
 
-// خلي dotenv يشتغل غير فالتجريب فالحاسوب ديالك
+// خلي dotenv يشتغل غير فالتجريب
 if (process.env.NODE_ENV !== 'production') {
-  console.log("🔵 مود التجريب - كيقرا من ملف .env");
+  console.log("🔵 مود التجريب");
   dotenv.config();
 } else {
-  console.log("🔵 مود الانتاج - كيقرا من Railway");
+  console.log("🔵 مود الانتاج");
 }
 
-// شوف واش كاين شي مشكل فالعدادات
-console.log("🔍 PORT:", process.env.PORT);
-console.log("🔍 NODE_ENV:", process.env.NODE_ENV);
-console.log("🔍 DATABASE_URL موجود؟", !!process.env.DATABASE_URL);
+console.log("🔍 البورط:", process.env.PORT);
+console.log("🔍 DATABASE_URL:", process.env.DATABASE_URL ? "موجود" : "ماشي موجود");
 
 console.log("🟢 3. غادي نحمل الداتابيز...");
 
-// جرب مع try/catch باش ماتفشلش
-let sequelize;
+// هون المتغيرات
+let db;  // بدل sequelize، سميه db
 try {
   const models = require('./src/models');
-  sequelize = models.sequelize;
-  console.log("✅ الداتابيز تتحمل بنجاح");
+  db = models.sequelize;  // خلي الاسم مختلف
+  console.log("✅ الداتابيز تحمل");
 } catch (error) {
-  console.log("❌ مشكل فتحميل الداتابيز:", error.message);
-  sequelize = null;
+  console.log("⚠️  مشكل فالداتابيز:", error.message);
+  db = null;
 }
 
 console.log("🟢 4. غادي نحمل الروابط...");
 
-let routes;
+let apiRoutes;
 try {
-  routes = require('./src/routes/index');
-  console.log("✅ الروابط تتحملو بنجاح");
+  apiRoutes = require('./src/routes/index');
+  console.log("✅ الروابط تحملو");
 } catch (error) {
-  console.log("❌ مشكل فتحميل الروابط:", error.message);
-  routes = null;
+  console.log("⚠️  مشكل فالروابط:", error.message);
+  apiRoutes = null;
 }
 
 const app = express();
-console.log("🟢 5. express تبدا تشتغل...");
+console.log("🟢 5. express بدا...");
 
-// الإعدادات الأساسية
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
 
-// إذا الروابط مازالو ما تحملوش، دير روابط بسيطة
-if (routes) {
-  app.use('/api', routes);
-  console.log("✅ الروابط راهم جاهزين");
+// إذا عندك دايركتوار uploads
+try {
+  app.use('/uploads', express.static('uploads'));
+} catch (err) {
+  console.log("⚠️  uploads ماموجودش");
+}
+
+// الروابط
+if (apiRoutes) {
+  app.use('/api', apiRoutes);
 } else {
-  // روابط طوارئ
   app.get('/api/test', (req, res) => {
-    res.json({ message: "API Ashbati تعمل" });
+    res.json({ message: "API تعمل" });
   });
-  console.log("⚠️  الروابط الأساسية تحدو");
 }
 
 // الصفحة الرئيسية
@@ -70,134 +68,50 @@ app.get('/', (req, res) => {
   res.json({ 
     message: '🌿 مرحبا فAPI ديال أشباتي',
     status: 'شغال',
-    time: new Date().toISOString(),
-    version: '1.0.0'
+    time: new Date().toISOString()
   });
 });
 
-// صفحة الصحة (باش يبقى السيرفر شغال)
+// صفحة الصحة
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'سليم',
-    database: sequelize ? 'متصل' : 'مش متصل',
+    database: db ? 'متصل' : 'مفصول',
     uptime: process.uptime()
   });
 });
 
 const PORT = process.env.PORT || 3000;
-console.log(`🎯 البورط راه ${PORT}`);
+console.log(`🎯 البورط: ${PORT}`);
 
 const startServer = async () => {
   try {
-    console.log(`🔗 غادي نحاولو نربطو مع الداتابيز...`);
+    console.log(`🔗 غادي نربطو مع الداتابيز...`);
     
-    if (sequelize) {
-      await sequelize.authenticate();
-      console.log('✅ الداتابيز ربط معاه بنجاح !');
+    if (db) {
+      await db.authenticate();
+      console.log('✅ الداتابيز ربطت!');
     } else {
-      console.log('⚠️  الداتابيز مازال ما ربطش');
+      console.log('⚠️  الداتابيز مازال مافيهاش');
     }
 
-    console.log(`🌍 غادي نبداو السيرفر ف ${PORT}...`);
+    console.log(`🌍 غادي نبداو السيرفر...`);
     
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🎉🎉🎉 السيرفر بدا بنجاح فالبورط: ${PORT}`);
-      console.log(`🌐 لينك ديالك: https://ashbati-backend.railway.app`);
-      console.log(`⏰ الوقت: ${new Date().toLocaleTimeString()}`);
-      console.log("=================================");
-      console.log("🚀 السيرفر جاهز لياكل الطلبات!");
-      console.log("=================================");
+      console.log(`🎉 السيرفر بدا ف: ${PORT}`);
+      console.log(`🌐 لينك: https://ashbati-backend.railway.app`);
+      console.log(`⏰ ${new Date().toLocaleTimeString()}`);
     });
 
   } catch (error) {
-    console.error('❌ ڤلا خطأ:', error.message);
-    console.error('📌 التفاصيل:', error.stack);
+    console.error('❌ خطأ:', error.message);
     
-    // حتى إذا فشل الداتابيز، السيرفر يبدا
+    // حتى إذا الداتابيز ما ربطتش، السيرفر يبدا
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`⚠️  السيرفر بدا بدون داتابيز ف ${PORT}`);
     });
   }
 };
 
-console.log("🎬 باش نبداو...");
+console.log("🎬 باش نبداو السيرفر...");
 startServer();
-
-// ============ ثانيا: ملف src/models/index.js كامل ============
-console.log('🔗 باش نربطو مع الداتابيز...');
-
-const { Sequelize } = require('sequelize');
-
-// شوف واش كاين DATABASE_URL
-if (!process.env.DATABASE_URL) {
-  console.log('❌ DATABASE_URL ماموجودش!');
-  console.log('ℹ️  تحقق من Variables فRailway');
-  throw new Error('DATABASE_URL ماموجودش');
-}
-
-console.log('✅ DATABASE_URL موجود');
-
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: 'postgres',
-  logging: false,
-  dialectOptions: {
-    ssl: process.env.NODE_ENV === 'production' ? {
-      require: true,
-      rejectUnauthorized: false
-    } : false
-  },
-  retry: {
-    max: 3,
-    timeout: 5000
-  }
-});
-
-console.log('✅ الداتابيز راه جاهز');
-
-module.exports = { sequelize, Sequelize };
-
-// ============ نصايح أخيرة: ============
-/*
-1. فRailway، دير Variables:
-   - PORT = 3000
-   - NODE_ENV = production
-   - DATABASE_URL = الرابط ديالك
-
-2. إذا مازال ما يبداش:
-   - سير لDeployments -> Redeploy
-   - أو Restart Service
-
-3. تحقق من package.json:
-   {
-     "scripts": {
-       "start": "node server.js"
-     }
-   }
-
-4. إذا بغيتي داتابيز يبقى شغال، دير:
-   - فملف package.json:
-     "scripts": {
-       "keep-alive": "node keep-alive.js"
-     }
-   
-   - وملف keep-alive.js:
-     setInterval(() => {
-       fetch('https://ashbati-backend.railway.app/health');
-     }, 10 * 60 * 1000);
-*/
-
-// ============ كود أبسط إذا مازال ما يبداش: ============
-/*
-const express = require('express');
-const app = express();
-const PORT = 3000;
-
-app.get('/', (req, res) => {
-  res.json({ message: 'سلام عليكم، أشباتي شغال' });
-});
-
-app.listen(PORT, () => {
-  console.log(`✅ السيرفر شغال ف ${PORT}`);
-});
-*/
-
