@@ -1,22 +1,42 @@
-console.log('🔗 Initialisation de Sequelize...');
+try {
+  console.log('🔗 Initialisation de Sequelize...');
+  
+  const { Sequelize } = require('sequelize');
+  console.log('✅ Sequelize importé');
 
-const { Sequelize } = require('sequelize');
-
-// Debug
-console.log('📊 DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
-console.log('🔒 SSL required:', process.env.NODE_ENV === 'production');
-
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: 'postgres',
-  logging: false, // غير لـ true باش تشوف الـ queries
-  dialectOptions: {
-    ssl: process.env.NODE_ENV === 'production' ? {
-      require: true,
-      rejectUnauthorized: false
-    } : false
+  // Debug
+  console.log('📊 DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+  
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set!');
   }
-});
 
-console.log('✅ Sequelize initialisé');
+  const sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    logging: true, // غير لـ true
+    dialectOptions: {
+      ssl: process.env.NODE_ENV === 'production' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
+    },
+    retry: {
+      max: 3
+    }
+  });
 
-module.exports = { sequelize, Sequelize };
+  console.log('✅ Sequelize initialisé avec succès');
+  
+  // Test immédiat
+  sequelize.authenticate()
+    .then(() => console.log('🔗 Test de connexion: OK'))
+    .catch(err => console.error('🔗 Test de connexion: ERREUR', err.message));
+
+  module.exports = { sequelize, Sequelize };
+
+} catch (error) {
+  console.error('❌ ERREUR dans models/index.js:', error.message);
+  console.error('📌 Stack:', error.stack);
+  throw error;
+}    console.log('✅ Connexion à la base de données réussie');
+    console.log("🚀 Démarrage du serveur sur le port", PORT);
