@@ -1,30 +1,22 @@
-const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
+console.log('🔗 Initialisation de Sequelize...');
 
-dotenv.config();
+const { Sequelize } = require('sequelize');
 
 // Debug
-console.log('🔗 DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
-console.log('🔗 Using SSL:', process.env.NODE_ENV === 'production');
+console.log('📊 DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
+console.log('🔒 SSL required:', process.env.NODE_ENV === 'production');
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
-  logging: console.log, // لرؤية الاستعلامات
+  logging: false, // غير لـ true باش تشوف الـ queries
   dialectOptions: {
     ssl: process.env.NODE_ENV === 'production' ? {
       require: true,
       rejectUnauthorized: false
     } : false
-  },
-  pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
-  },
-  retry: {
-    max: 3
   }
 });
+
+console.log('✅ Sequelize initialisé');
 
 module.exports = { sequelize, Sequelize };
