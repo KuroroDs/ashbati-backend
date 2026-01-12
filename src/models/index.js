@@ -1,21 +1,30 @@
-const sequelize = require('../config/database');
-const Category = require('./Category');
-const Product = require('./Product');
-const Unit = require('./Unit'); // زدنا هادي
+const { Sequelize } = require('sequelize');
+const dotenv = require('dotenv');
 
-// 1. علاقة الفئة بالمنتجات (كما كانت)
-Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
-Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+dotenv.config();
 
-// 2. علاقة الوحدات بالمنتجات (الجديدة)
-// الوحدة الواحدة (مثلاً Kg) يقدر يكون عندها بزاف المنتجات
-Unit.hasMany(Product, { foreignKey: 'unit_id', as: 'products' });
-// المنتج تابع لوحدة وحدة
-Product.belongsTo(Unit, { foreignKey: 'unit_id', as: 'unit' });
+// Debug
+console.log('🔗 DATABASE_URL length:', process.env.DATABASE_URL?.length || 0);
+console.log('🔗 Using SSL:', process.env.NODE_ENV === 'production');
 
-module.exports = {
-    sequelize,
-    Category,
-    Product,
-    Unit
-};
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  logging: console.log, // لرؤية الاستعلامات
+  dialectOptions: {
+    ssl: process.env.NODE_ENV === 'production' ? {
+      require: true,
+      rejectUnauthorized: false
+    } : false
+  },
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  },
+  retry: {
+    max: 3
+  }
+});
+
+module.exports = { sequelize, Sequelize };
