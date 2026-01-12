@@ -4,49 +4,43 @@ const { Sequelize } = require('sequelize');
 
 // تحقق من DATABASE_URL
 const databaseUrl = process.env.DATABASE_URL;
+let sequelize;
 
 if (!databaseUrl) {
-  console.log('❌ DATABASE_URL ماموجودش!');
+  console.log('⚠️  DATABASE_URL ماموجودش - نستعملو إعدادات محلية');
   
-  // جرب الـ variables المنفصلة (للتطوير المحلي)
+  // إعدادات للتطوير المحلي
   if (process.env.DB_HOST && process.env.DB_NAME) {
     console.log('🔍 كاين إعدادات داتابيز منفصلة');
-    // كون الـ URL يدوياً
     const constructedUrl = `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASS || ''}@${process.env.DB_HOST}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME}`;
     
-    console.log('✅ URL متكون:', constructedUrl.replace(/:[^:@]*@/, ':****@'));
+    console.log('✅ URL متكون');
     
-    const sequelize = new Sequelize(constructedUrl, {
+    sequelize = new Sequelize(constructedUrl, {
       dialect: 'postgres',
       logging: false,
-      dialectOptions: process.env.NODE_ENV === 'production' ? {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false
-        }
-      } : {}
+      dialectOptions: false // SSL محلياً ماشي ضروري
     });
-    
-    module.exports = { sequelize, Sequelize };
-    return;
+  } else {
+    console.log('❌ ماعندناش إعدادات داتابيز');
+    sequelize = null; // ⬅️ مهم: خليه null إذا ما كاينش
   }
+} else {
+  console.log('✅ DATABASE_URL موجود');
   
-  throw new Error('DATABASE_URL ماموجودش');
+  sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    logging: false,
+    dialectOptions: process.env.NODE_ENV === 'production' ? {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    } : false
+  });
 }
 
-console.log('✅ DATABASE_URL موجود');
+console.log('✅ الداتابيز راه جاهز:', sequelize ? 'نعم' : 'لا');
 
-const sequelize = new Sequelize(databaseUrl, {
-  dialect: 'postgres',
-  logging: false,
-  dialectOptions: process.env.NODE_ENV === 'production' ? {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false
-    }
-  } : {}
-});
-
-console.log('✅ الداتابيز راه جاهز');
-
+// ⚠️ ⚠️ ⚠️ مهم: دايماً كيexport حتى إذا sequelize هو null
 module.exports = { sequelize, Sequelize };
