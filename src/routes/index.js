@@ -43,11 +43,11 @@ router.post('/auth/login', (req, res) => {
 });
 
 // 📍 Health check
-router.get('/health', (req, res) => {
+/*router.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     uptime: process.uptime()
   });
 });
 
-module.exports = router;
+module.exports = router;*/
