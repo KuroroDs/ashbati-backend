@@ -1,6 +1,6 @@
 // ==================== CONFIGURATION ====================
 console.log("🚀 Ashbati API - Starting Server...");
-
+const Product = require('./src/models/Product');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -119,15 +119,28 @@ apiRouter.get('/test', (req, res) => {
   });
 });
 
-// Products endpoint
-apiRouter.get('/products', (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'Products endpoint',
-    count: 0,
-    timestamp: new Date().toISOString()
-  });
+// Products endpoint - CODE NEW
+apiRouter.get('/products', async (req, res) => {
+  try {
+    // 1. نجيبو المنتجات من الداتابايز صح
+    const products = await Product.findAll();
+
+    // 2. نبعثوهم للفرونت اند
+    res.json({
+      success: true,
+      data: products, // هاذي هي الصح! كانت [] ورجعت داتا حقيقية
+      message: 'Products fetched successfully',
+      count: products.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch products from DB',
+      error: error.message
+    });
+  }
 });
 
 // Database status endpoint
